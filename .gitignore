@@ -1,0 +1,23 @@
+node_modules/
+.env
+api/.env
+.env.local
+.DS_Store
+*.log
+api/uploads/*
+!api/uploads/.gitkeep
+web/dist/
+site/public/admin/
+# Priest studio cutouts are staged here then seeded into Netlify Blobs — do not commit.
+site/public/priests/portraits/
+# Generated portraits staged outside public, then seeded to Blobs — do not commit.
+api/.staging/
+.netlify/
+
+.local/
+LOCAL-LOGIN.txt
+notes/.obsidian/workspace*.json
+notes/.obsidian/cache/
+notes/.trash/
+notes/.obsidian-mcp/
+.vercel

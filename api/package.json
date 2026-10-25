@@ -1,0 +1,41 @@
+{
+  "name": "omi-jaffna-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "migrate": "node scripts/migrate.js",
+    "seed": "node scripts/seed.js",
+    "import:site": "node --no-warnings scripts/import-site-content.js",
+    "import:bishops": "node --no-warnings scripts/import-bishops.js",
+    "import:necrology": "node --no-warnings scripts/import-necrology.js",
+    "seed:priest-portraits": "node --no-warnings scripts/seed-priest-portraits.js",
+    "seed:priest-portraits:public": "node --no-warnings scripts/seed-priest-portraits.js --public",
+    "seed:council-portraits": "node --no-warnings scripts/seed-council-portraits.js",
+    "seed:ministry-sections": "node --no-warnings scripts/seed-ministry-sections.js",
+    "seed:international": "node --no-warnings scripts/seed-international-countries.js",
+    "seed:library": "node --no-warnings scripts/seed-library-dummy.js",
+    "migrate:media": "node --no-warnings scripts/migrate-blobs-to-supabase.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.118.0",
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
+    "pg": "^8.13.1",
+    "serverless-http": "^4.0.0",
+    "zod": "^3.24.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
