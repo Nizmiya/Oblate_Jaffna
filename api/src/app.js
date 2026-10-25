@@ -392,8 +392,7 @@ app.get('/api/files/:id',asyncRoute(async(req,res)=>{
   }catch{return bad(res,'Not available',404);}
  }
  // Published images: redirect to Supabase Storage CDN (no Netlify Blobs, faster loads).
- const cdn=(process.env.MEDIA_STORE||'').toLowerCase()==='supabase'||Boolean(supabaseUrl());
- if(a.status==='published'&&cdn){
+ if(a.status==='published'&&supabaseUrl()){
   const url=publicObjectUrl(a.filename);
   if(url){
    res.set('Cache-Control','public, max-age=3600');
