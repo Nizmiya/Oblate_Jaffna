@@ -15,7 +15,9 @@ import {saveFile,readStoredFile,removeFile} from './storage.js';
 import {contentSchema,inquirySchema,publishCheck,fatherRegistrationSchema,fatherProfileSchema,fatherItemSchema,fatherItemUpdateSchema,fatherItemKinds,fatherDispatchSchema,fatherNewsSchema} from './validation.js';
 
 export const app=express();
-if(!process.env.JWT_SECRET||process.env.JWT_SECRET.length<32)throw new Error('Set JWT_SECRET to a random string of at least 32 characters');
+// Bracket access keeps Netlify/esbuild from inlining env at bundle time.
+const jwtSecret=process.env['JWT_SECRET']||'';
+if(jwtSecret.length<32)throw new Error('Set JWT_SECRET to a random string of at least 32 characters');
 app.disable('x-powered-by');
 if(process.env.TRUST_PROXY)app.set('trust proxy',Number(process.env.TRUST_PROXY)||process.env.TRUST_PROXY);
 // Netlify may hand the function its own path instead of the original /api/... URL.
@@ -380,7 +382,7 @@ app.get('/api/files/:id',asyncRoute(async(req,res)=>{
  const a=r.rows[0];if(a.status!=='published'){
   try{
    const p=req.cookies?.omi_session;
-   const claims=p?((await import('jsonwebtoken')).default.verify(p,process.env.JWT_SECRET)):null;
+   const claims=p?((await import('jsonwebtoken')).default.verify(p,process.env['JWT_SECRET'])):null;
    if(!claims)return bad(res,'Not available',404);
    const active=await query('SELECT role FROM users WHERE id=$1 AND active=true',[claims.sub]);
    if(!active.rowCount)return bad(res,'Not available',404);
