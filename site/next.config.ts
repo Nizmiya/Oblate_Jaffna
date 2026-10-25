@@ -3,6 +3,20 @@ import type { NextConfig } from "next";
 const apiOrigin = (process.env.API_URL || process.env.API_ORIGIN || "http://127.0.0.1:4000").replace(/\/+$/, "");
 
 const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "**.supabase.co",
+        pathname: "/storage/v1/object/public/**",
+      },
+      {
+        protocol: "https",
+        hostname: "fsncyyoejeeiqspkonst.supabase.co",
+        pathname: "/storage/v1/object/public/**",
+      },
+    ],
+  },
   experimental: {
     agentUpgrade: "security",
   },

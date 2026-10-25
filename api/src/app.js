@@ -11,7 +11,7 @@ import {query} from './db.js';
 import {auth,allow,issueToken,cookieOptions} from './security.js';
 import {crudRouter} from './crud.js';
 import {TYPES} from './constants.js';
-import {saveFile,readStoredFile,removeFile} from './storage.js';
+import {saveFile,readStoredFile,removeFile,publicObjectUrl,supabaseUrl} from './storage.js';
 import {contentSchema,inquirySchema,publishCheck,fatherRegistrationSchema,fatherProfileSchema,fatherItemSchema,fatherItemUpdateSchema,fatherItemKinds,fatherDispatchSchema,fatherNewsSchema} from './validation.js';
 
 export const app=express();
@@ -390,6 +390,15 @@ app.get('/api/files/:id',asyncRoute(async(req,res)=>{
    const allowed=['admin','editor','publisher'].includes(role)||a.uploaded_by===claims.sub;
    if(!allowed)return bad(res,'Not available',404);
   }catch{return bad(res,'Not available',404);}
+ }
+ // Published images: redirect to Supabase Storage CDN (no Netlify Blobs, faster loads).
+ const cdn=(process.env.MEDIA_STORE||'').toLowerCase()==='supabase'||Boolean(supabaseUrl());
+ if(a.status==='published'&&cdn){
+  const url=publicObjectUrl(a.filename);
+  if(url){
+   res.set('Cache-Control','public, max-age=3600');
+   return res.redirect(302,url);
+  }
  }
  const sendFile=(buf,type)=>{
   res.set('Content-Type',type||a.mime_type);

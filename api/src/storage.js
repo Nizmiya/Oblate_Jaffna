@@ -31,8 +31,19 @@ export function supabaseUrl(){
  return '';
 }
 
+/** Public CDN URL for an object in the media bucket (bucket must be public). */
+export function publicObjectUrl(name){
+ const base=supabaseUrl();
+ if(!base||!name)return '';
+ return `${base}/storage/v1/object/public/${bucketName()}/${encodeURIComponent(name).replace(/%2F/gi,'/')}`;
+}
+
 let client;
 let bucketReady;
+
+function hasServiceRole(){
+ return Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+}
 
 function supabase(){
  if(client)return client;
@@ -40,7 +51,7 @@ function supabase(){
  const key=process.env.SUPABASE_SERVICE_ROLE_KEY||'';
  if(!url||!key){
   throw Object.assign(
-   new Error('Set SUPABASE_URL (or DATABASE_URL with postgres.<ref>) and SUPABASE_SERVICE_ROLE_KEY for MEDIA_STORE=supabase'),
+   new Error('Set SUPABASE_URL (or DATABASE_URL with postgres.<ref>) and SUPABASE_SERVICE_ROLE_KEY for MEDIA_STORE=supabase uploads'),
    {code:'SUPABASE_CONFIG'}
   );
  }
@@ -50,15 +61,23 @@ function supabase(){
 
 async function ensureBucket(){
  if(bucketReady)return;
+ if(!hasServiceRole()){
+  // Reads use the public CDN; uploads still need the service role.
+  bucketReady=true;
+  return;
+ }
  const sb=supabase();
  const name=bucketName();
  const {data:buckets,error:listErr}=await sb.storage.listBuckets();
  if(listErr)throw Object.assign(new Error(listErr.message),{code:'SUPABASE_STORAGE'});
  if(!buckets?.some((b)=>b.name===name)){
-  const {error}=await sb.storage.createBucket(name,{public:false,fileSizeLimit:12*1024*1024});
+  const {error}=await sb.storage.createBucket(name,{public:true,fileSizeLimit:12*1024*1024});
   if(error&&!/already exists/i.test(error.message)){
    throw Object.assign(new Error(error.message),{code:'SUPABASE_STORAGE'});
   }
+ }else{
+  // Prefer public reads so Netlify Functions do not need the service-role key.
+  await sb.storage.updateBucket(name,{public:true}).catch(()=>{});
  }
  bucketReady=true;
 }
@@ -69,7 +88,7 @@ export async function initStorage(){
   try{await ensureBucket();}
   catch(e){
    console.error('Supabase Storage init failed:',e.message||e);
-   console.error('Set SUPABASE_SERVICE_ROLE_KEY in api/.env (Dashboard → Settings → API Keys).');
+   console.error('Set SUPABASE_SERVICE_ROLE_KEY in api/.env (Dashboard → Settings → API Keys) for uploads.');
   }
  }
 }
@@ -85,8 +104,25 @@ export async function saveFile(name,buffer){
  await writeFile(path.join(uploadDir(),name),buffer);
 }
 
+async function readViaPublicCdn(name){
+ const url=publicObjectUrl(name);
+ if(!url)return null;
+ const res=await fetch(url,{signal:AbortSignal.timeout(25000)});
+ if(res.status===404)throw missing();
+ if(!res.ok)return null;
+ return Buffer.from(await res.arrayBuffer());
+}
+
 export async function readStoredFile(name){
  if(useSupabase()){
+  // Prefer public CDN — works without SUPABASE_SERVICE_ROLE_KEY (Netlify Secret issues).
+  try{
+   const viaPublic=await readViaPublicCdn(name);
+   if(viaPublic)return viaPublic;
+  }catch(e){
+   if(e.code==='ENOENT')throw e;
+  }
+  if(!hasServiceRole())throw missing();
   await ensureBucket();
   const {data,error}=await supabase().storage.from(bucketName()).download(name);
   if(error){
@@ -101,6 +137,7 @@ export async function readStoredFile(name){
 
 export async function removeFile(name){
  if(useSupabase()){
+  if(!hasServiceRole())return;
   await ensureBucket();
   const {error}=await supabase().storage.from(bucketName()).remove([name]);
   if(error&&!/not found|does not exist|404/i.test(error.message)){
@@ -114,10 +151,19 @@ export async function removeFile(name){
 /** True when object exists in the configured store (used by migrate). */
 export async function storedFileExists(name){
  if(useSupabase()){
+  try{
+   const url=publicObjectUrl(name);
+   if(url){
+    const res=await fetch(url,{method:'HEAD',signal:AbortSignal.timeout(15000)});
+    if(res.ok)return true;
+    if(res.status===404)return false;
+   }
+  }catch{/* fall through */}
+  if(!hasServiceRole())return false;
   await ensureBucket();
-  const dir=path.posix.dirname(name);
+  const dirName=path.posix.dirname(name);
   const base=path.posix.basename(name);
-  const folder=dir==='.'?'':dir;
+  const folder=dirName==='.'?'':dirName;
   const {data,error}=await supabase().storage.from(bucketName()).list(folder,{search:base,limit:100});
   if(error)return false;
   return Boolean(data?.some((f)=>f.name===base));
